@@ -2,7 +2,7 @@
 
 **Send every prompt to the cheapest model that can answer it well, and attach a tool (RAG, SQL or web search) when the prompt needs one.**
 
-Built on Azure AI Foundry by [Suhail Ahmed](https://github.com/suhail39ahmed).
+A provider-agnostic LLM router: works with any OpenAI-compatible endpoint (tested on Azure AI Foundry with Phi-4-mini, Mistral Small, gpt-5-mini and gpt-5.4). Built by [Suhail Ahmed](https://github.com/suhail39ahmed).
 
 ---
 
@@ -104,6 +104,19 @@ Cached-input discounts are not modelled, so the savings are conservative.
 
 ---
 
+## Use with other providers
+
+The router only needs an OpenAI-compatible API. Set `LLM_BASE_URL`, `LLM_API_KEY` and the four `MODEL_*` names to that provider's values. Nothing else changes.
+
+| Provider | `LLM_BASE_URL` | `LLM_API_KEY` | `MODEL_*` values |
+|---|---|---|---|
+| Azure AI Foundry | `https://<resource>.services.ai.azure.com/openai/v1/` | Foundry key | deployment names |
+| OpenAI | `https://api.openai.com/v1` | OpenAI key | model names |
+| Databricks | `https://<workspace>.cloud.databricks.com/serving-endpoints` | Databricks PAT | serving endpoint names |
+| Ollama (local) | `http://localhost:11434/v1` | any string | local model tags |
+| OpenRouter | `https://openrouter.ai/api/v1` | OpenRouter key | model slugs |
+
+`reasoning_effort` only applies to GPT-5 models. Results in this README were measured on Azure AI Foundry, so rerun `eval_rules` and `cost_report` after switching providers.
 ## Project structure
 
 ```
@@ -124,7 +137,7 @@ llm-auto-router/
 
 ```bash
 uv sync
-cp .env.example .env          # add your Foundry endpoint, key and deployment names
+cp .env.example .env          # add your endpoint (LLM_BASE_URL), key (LLM_API_KEY) and model names
 uv run python scripts/smoke_test.py
 uv run python -m src.router.eval_rules        # rule router
 uv run python -m src.router.eval_rules llm    # LLM router

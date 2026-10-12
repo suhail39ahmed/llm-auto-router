@@ -6,8 +6,8 @@ from openai import OpenAI                   # OpenAI client, works with Foundry'
 load_dotenv()                               # read .env from the repo root
 
 client = OpenAI(                            # one client for all four deployments
-    base_url=os.environ["FOUNDRY_ENDPOINT"],    # .../openai/v1/
-    api_key=os.environ["FOUNDRY_API_KEY"],      # your Foundry key
+    base_url=os.environ["LLM_BASE_URL"],    # .../openai/v1/
+    api_key=os.environ["LLM_API_KEY"],      # your Foundry key
 )
 
 MODELS = {                                  # role -> deployment name from .env
