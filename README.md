@@ -1,5 +1,7 @@
 # LLM Auto-Router
 
+![LLM Auto-Router: send every prompt to the cheapest capable model](docs/cover.jpg)
+
 **Send every prompt to the cheapest model that can answer it well, and attach a tool (RAG, SQL or web search) when the prompt needs one.**
 
 A provider-agnostic LLM router: works with any OpenAI-compatible endpoint (tested on Azure AI Foundry with Phi-4-mini, Mistral Small, gpt-5-mini and gpt-5.4). Built by [Suhail Ahmed](https://github.com/suhail39ahmed).
@@ -90,6 +92,43 @@ Unscored prompts timed out. Times are summed per-call latency.
 Phi-4-mini 0.075 / 0.30, gpt-5-mini 0.25 / 2.00, gpt-5.4 2.50 / 15.00.
 Mistral-small 0.10 / 0.30 is **estimated** (third-party source, not verified).
 Cached-input discounts are not modelled, so the savings are conservative.
+
+---
+
+## Design & Engineering
+
+The architecture diagram above shows the moving parts. This section is about why I designed it that way.
+
+**Design goals**
+
+- Pay for the big model only when a prompt actually needs it, without silently dropping quality.
+- Stay provider-agnostic: one OpenAI-compatible endpoint, the model picked by a deployment name.
+- Measure both sides of the trade-off (routing accuracy and real cost/latency) against a labelled golden set, not vibes.
+
+**Key design decisions and trade-offs**
+
+| Decision | Why | Trade-off |
+|---|---|---|
+| Small LLM classifier (gpt-5-mini) instead of keyword rules | Users imply intent; the regex baseline plateaued at 62% | One extra model call per prompt |
+| JSON output validated in code; invalid means **strong** | When the router is unsure or broken, fail toward quality | Some easy prompts get overpaid |
+| Policy rule: tool answers never go to **cheap** | Tool results need synthesis that small models get wrong | Slightly higher cost on tool prompts |
+| `reasoning_effort=minimal` for the classifier | Hidden reasoning tokens would eat the savings | Less "thinking" on borderline prompts |
+| 100-prompt golden set labelled with the *cheapest correct tier* | Gives one number to tune against, including 14 deliberately tricky prompts | Tuning on the same set inflates accuracy until a held-out split exists |
+
+**Engineering details**
+
+- **Stack:** Python, `uv` for dependencies (`uv.lock`), OpenAI-compatible client, Azure AI Foundry deployments (Phi-4-mini, Mistral Small, gpt-5-mini, gpt-5.4).
+- **Evals:** `src/router/eval_rules.py` scores tier and tool accuracy; `src/router/cost_report.py` runs every prompt through the routed model *and* gpt-5.4 with 8 parallel workers and per-call timeouts.
+- **Operations:** `scripts/smoke_test.py` checks every deployment before an eval run (it caught a 604 s serverless cold start on Phi).
+- **Config:** everything provider-specific lives in `.env` (`LLM_BASE_URL`, `LLM_API_KEY`, `MODEL_*`).
+- **Not yet:** unit tests (`tests/` is a placeholder) and CI.
+
+**What I'd do next**
+
+- A held-out test split, so the accuracy number is honest.
+- Confidence-based escalation and latency-aware routing.
+- Execute tools with LangGraph, using [production_grade_rag](https://github.com/suhail39ahmed/production_grade_rag) as the `rag` tool.
+- Unit tests for the validator and policy rules, run in GitHub Actions.
 
 ---
 
